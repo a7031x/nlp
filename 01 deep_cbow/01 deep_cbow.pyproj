@@ -12,9 +12,11 @@
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
-    <CommandLineArguments>--input_dir input/ --output_dir output/</CommandLineArguments>
+    <CommandLineArguments>--input_dir ../input/ --output_dir output/</CommandLineArguments>
     <Name>01 deep_cbow</Name>
     <RootNamespace>TensorFlowApplication5</RootNamespace>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
