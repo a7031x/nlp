@@ -13,29 +13,37 @@ tf.app.flags.DEFINE_string("model_dir", "output", "Model directory where final m
 
 np.set_printoptions(linewidth=np.nan, threshold=np.nan)
 
+# Define the model
+EMB_SIZE = 64
+WIN_SIZE = 3
+FILTER_SIZE = 64
+
 # Functions to read in the corpus
 w2i = defaultdict(lambda: len(w2i))
+t2i = defaultdict(lambda: len(t2i))
 UNK = w2i["<unk>"]
 def read_dataset(filename):
     with open(filename, "r") as f:
         for line in f:
             tag, words = line.lower().strip().split(" ||| ")
-            words = words.split(" ")
-            yield (words, [w2i[x] for x in words], int(tag))
+            yield ([w2i[x] for x in words.split(" ")], t2i[tag])
 
-# Read in the data
-train = list(read_dataset("classes/train.txt"))
-w2i = defaultdict(lambda: UNK, w2i)
-dev = list(read_dataset("classes/test.txt"))
-nwords = len(w2i)
-ntags = 5
 
-EMB_SIZE = 64
-WIN_SIZE = 3
-FILTER_SIZE = 64
+def read():
+    global w2i, i2w
+    train_path = os.path.join(FLAGS.input_dir, 'classes/train.txt')
+    train = list(read_dataset(train_path))
+    w2i = defaultdict(lambda: UNK, w2i)
+    valid_path = os.path.join(FLAGS.input_dir, 'classes/test.txt')
+    valid = list(read_dataset(valid_path))
+    i2w = {v: k for k, v in w2i.items()}
+
+    return train, valid
 
 
 def create_model(input):
+    nwords = len(w2i)
+    ntags = 5
     w_emb = tf.Variable(tf.random_uniform([nwords, 1, 1, EMB_SIZE], -1.0, 1.0), dtype=tf.float32, name='w_emb')
     w_cnn = tf.Variable(tf.random_uniform([1, WIN_SIZE, EMB_SIZE, FILTER_SIZE], -1.0, 1.0), dtype=tf.float32, name='w_cnn')
     b_cnn = tf.Variable(tf.zeros([FILTER_SIZE]), dtype=tf.float32, name='b_cnn')
@@ -89,6 +97,19 @@ def main(_):
         tf.global_variables_initializer().run()
         for iter in range(100):
             iteration_loss = 0
+
+            test_correct = 0
+            for words, tag in valid:
+                feed = {
+                    input: words,
+                    label: tag
+                }
+                scores = sess.run([score], feed_dict=feed)
+                predict = np.argmax(scores)
+                if predict == tag:
+                    test_correct += 1
+            print('test correct: %r/%r' % (test_correct, len(valid)))
+
             for words, tag in train:
                 if len(words) < WIN_SIZE:
                     words += [0] * (WIN_SIZE-len(words))
@@ -99,13 +120,6 @@ def main(_):
                 _, loss_val = sess.run([optimizer, loss], feed_dict=feed)
                 iteration_loss += loss_val
             print('iteration: %r; loss: %.4f' % (iter, iteration_loss / len(train)))
-
-        test_correct = 0.0
-        for words, tag in dev:
-            scores = calc_scores(words).npvalue()
-            predict = np.argmax(scores)
-            if predict == tag:
-                test_correct += 1
 
 if __name__ == "__main__":
     tf.app.run()
