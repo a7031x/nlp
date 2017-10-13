@@ -1,0 +1,39 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27004.2002
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "01 deep_cbow", "01 deep_cbow\01 deep_cbow.pyproj", "{F3E48314-DCB0-491E-B269-D7D94A9502B4}"
+EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "02 linear_model", "02 linear_model\02 linear_model.pyproj", "{463CCAE0-2C2C-40AF-B4CA-5B2C47B6BDEB}"
+EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "03 wordemb", "03 wordemb\03 wordemb.pyproj", "{87BB33B5-96C2-4A6C-80C8-68C378D22C22}"
+EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "04 efficiency", "04 efficiency\04 efficiency.pyproj", "{91449F57-2332-4B38-8157-507F7993D19A}"
+EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "05 cnn", "05 cnn\05 cnn.pyproj", "{F63A13DD-A792-4048-B2D8-552CF2DC250A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F3E48314-DCB0-491E-B269-D7D94A9502B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F3E48314-DCB0-491E-B269-D7D94A9502B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{463CCAE0-2C2C-40AF-B4CA-5B2C47B6BDEB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{463CCAE0-2C2C-40AF-B4CA-5B2C47B6BDEB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87BB33B5-96C2-4A6C-80C8-68C378D22C22}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87BB33B5-96C2-4A6C-80C8-68C378D22C22}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91449F57-2332-4B38-8157-507F7993D19A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91449F57-2332-4B38-8157-507F7993D19A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F63A13DD-A792-4048-B2D8-552CF2DC250A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F63A13DD-A792-4048-B2D8-552CF2DC250A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {07AC15D0-84B6-497B-A213-EB2AE3D670E2}
+	EndGlobalSection
+EndGlobal
