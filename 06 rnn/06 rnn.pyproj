@@ -11,7 +11,7 @@
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
-    <CommandLineArguments>--input_dir ../input/ --output_dir output/</CommandLineArguments>
+    <CommandLineArguments>--input_dir ../input/ --output_dir output/ --model_dir model/</CommandLineArguments>
     <Name>06 rnn</Name>
     <RootNamespace>06 rnn</RootNamespace>
     <LaunchProvider>Standard Python launcher</LaunchProvider>

@@ -16,7 +16,6 @@ from collections import defaultdict
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('input_dir', 'input', 'Input directory where training dataset and meta data are saved')
 tf.app.flags.DEFINE_string('output_dir', 'output', 'Output directory where output such as logs are saved.')
-tf.app.flags.DEFINE_string('model_dir', 'output', 'Model directory where final model files are saved.')
 
 # We reuse the data reading from the language modeling class
 w2i = defaultdict(lambda: len(w2i))
@@ -52,7 +51,6 @@ def read():
 
 
 EMBED_SIZE = 64
-HIDDEN_SIZE = 128
 NUMBER_LAYERS = 2
 KEEP_PROB = 0.5
 BATCH_SIZE = 20
