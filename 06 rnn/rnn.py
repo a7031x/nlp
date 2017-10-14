@@ -3,6 +3,7 @@ import sys
 import os
 import tensorflow as tf
 import inspect
+import time
 from collections import defaultdict
 
 ###################################################################
@@ -60,12 +61,16 @@ NUMBER_STEPS = 35
 HIDDEN_SIZE = 1000
 INIT_SCALE = 0.05
 MAX_GRAD_NORM = 5
+MAX_EPOCH = 6
+MAX_MAX_EPOCH = 39
+LR_DECAY = 0.8
+LEARNING_RATE = 1.0
 
 
 class PTBInput(object):
     def __init__(self, data, name=None):
-        self.epoch_size = ((len(data) // BATCH_SIZE) - 1) // NUMBER_STEPS
-        self._input, self._targets = self.ptb_producer(data, BATCH_SIZE, NUMBER_STEPS)
+        self._epoch_size = ((len(data) // BATCH_SIZE) - 1) // NUMBER_STEPS
+        self._input, self._label = self.ptb_producer(data, BATCH_SIZE, NUMBER_STEPS)
 
     def ptb_producer(self, raw_data, batch_size, num_steps):
         raw_data = tf.convert_to_tensor(raw_data, dtype=tf.int32)
@@ -83,20 +88,13 @@ class PTBInput(object):
         y.set_shape([batch_size, num_steps])
         return x, y
 
-    @property
-    def input(self):
-        return self._input
-
-    @property
-    def label(self):
-        return self._targets
-
     def produce(self):
-        return self.input, self.label
+        return self._input, self._label, self._epoch_size
 
 
 class PTBModel(object):
     def __init__(self, input, label, is_training):
+        self._input = input
         if is_training:
             attn_cell = self.create_attn_cell
         else:
@@ -175,7 +173,7 @@ class PTBModel(object):
         return self._train_op
 
 
-def run_epoch(session, model, eval_op=None, verbose=True):
+def run_epoch(session, model, epoch_size, eval_op=None, verbose=True):
     """Runs the model on the given data."""
     start_time = time.time()
     costs = 0.0
@@ -194,12 +192,10 @@ def run_epoch(session, model, eval_op=None, verbose=True):
         state = vals["state"]
 
         costs += cost
-        iters += model.input.num_steps
+        iters += NUMBER_STEPS
 
-        if verbose and step % (model.input.epoch_size // 10) == 10:
-            print("%.3f perplexity: %.3f speed: %.0f wps" %
-                (step * 1.0 / model.input.epoch_size, np.exp(costs / iters),
-                    iters * model.input.batch_size / (time.time() - start_time)))
+        if verbose and step % 10 == 0:
+            print("--%.3f perplexity: %.3f speed: %.0f wps" % (step / epoch_size, np.exp(costs / iters), iters * BATCH_SIZE / (time.time() - start_time)))
 
     return np.exp(costs / iters)
 
@@ -209,39 +205,36 @@ def main(_):
     train, valid, test = read()
 
     with tf.Graph().as_default():
-        train_input, train_label = PTBInput(data=train).produce()
+        train_input, train_label, train_epoch_size = PTBInput(data=train).produce()
         with tf.variable_scope("Model", reuse=None, initializer=initializer):
             train_model = PTBModel(is_training=True, input=train_input, label=train_label)
 
-        valid_input, valid_label = PTBInput(data=valid).produce()
+        valid_input, valid_label, valid_epoch_size = PTBInput(data=valid).produce()
         with tf.variable_scope("Model", reuse=True, initializer=initializer):
             valid_model = PTBModel(is_training=False, input=valid_input, label=valid_label)
 
-        test_input, test_label = PTBInput(data=test).produce()
+        test_input, test_label, test_epoch_size = PTBInput(data=test).produce()
         with tf.variable_scope("Model", reuse=True, initializer=initializer):
             valid_model = PTBModel(is_training=False, input=test_input, label=test_label)
 
-'''
-    sv = tf.train.Supervisor(logdir=FLAGS.save_path)
-    with sv.managed_session() as session:
-      for i in range(config.max_max_epoch):
-        lr_decay = config.lr_decay ** max(i + 1 - config.max_epoch, 0.0)
-        m.assign_lr(session, config.learning_rate * lr_decay)
+        sv = tf.train.Supervisor(logdir=FLAGS.output_dir)
+        with sv.managed_session() as session:
+            for i in range(MAX_MAX_EPOCH):
+                lr_decay = LR_DECAY ** max(i + 1 - MAX_EPOCH, 0.0)
+                train_model.assign_lr(session, LEARNING_RATE * lr_decay)
+                print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(train_model.lr)))
 
-        print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(m.lr)))
-        train_perplexity = run_epoch(session, m, eval_op=m.train_op,
-                                     verbose=True)
-        print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
-        valid_perplexity = run_epoch(session, mvalid)
-        print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
+                train_perplexity = run_epoch(session, train_model, train_epoch_size, eval_op=train_model.train_op, verbose=True)
+                print("Epoch: %d Train Perplexity: %.3f" % (i + 1, train_perplexity))
 
-      test_perplexity = run_epoch(session, mtest)
-      print("Test Perplexity: %.3f" % test_perplexity)
+                valid_perplexity = run_epoch(session, valid_model, valid_epoch_size)
+                print("Epoch: %d Valid Perplexity: %.3f" % (i + 1, valid_perplexity))
 
-      if FLAGS.save_path:
-        print("Saving model to %s." % FLAGS.save_path)
-        sv.saver.save(session, FLAGS.save_path, global_step=sv.global_step)
-'''
+            test_perplexity = run_epoch(session, test_model, test_epoch_size)
+            print("Test Perplexity: %.3f" % test_perplexity)
+
+            sv.saver.save(session, FLAGS.output_dir, global_step=sv.global_step)
+
 
 if __name__ == "__main__":
     tf.app.run()
