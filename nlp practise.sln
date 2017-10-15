@@ -17,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "06 rnn", "06 rnn\06 rnn.pyproj", "{091FAF71-E924-4217-895A-434B9A7CD684}"
 EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "07 sentrep", "07 sentrep\07 sentrep.pyproj", "{56DAA4AC-6277-407C-9DD3-7F498449EFF1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,8 @@ Global
 		{F63A13DD-A792-4048-B2D8-552CF2DC250A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{091FAF71-E924-4217-895A-434B9A7CD684}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{091FAF71-E924-4217-895A-434B9A7CD684}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{56DAA4AC-6277-407C-9DD3-7F498449EFF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{56DAA4AC-6277-407C-9DD3-7F498449EFF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
