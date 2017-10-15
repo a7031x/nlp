@@ -44,32 +44,44 @@ EMBED_SIZE = 64
 HIDDEN_SIZE = 128
 BATCH_SIZE = 16
 TIMESTEPS = 20
+MAX_TIMESTEPS = 96
 
-#x = tf.unstack(x, timesteps, 1)
-def create_matrix(input, nwords):
-    embedding = tf.Variable(tf.random_uniform([nwords, EMBED_SIZE], -1.0, 1.0), dtype=tf.float32)
+def create_matrix(input, nwords, name):
+    embedding = tf.Variable(tf.random_uniform([nwords, EMBED_SIZE], -1.0, 1.0), dtype=tf.float32, name=name)
     input = tf.nn.embedding_lookup(embedding, input)
-    input = tf.unstack(input, TIMESTEPS, 1)
     lstm_fw_cell = rnn.BasicLSTMCell(HIDDEN_SIZE, forget_bias=1.0)
     lstm_bw_cell = rnn.BasicLSTMCell(HIDDEN_SIZE, forget_bias=1.0)
-    outputs, _, _ = rnn.static_bidirectional_rnn(lstm_fw_cell, lstm_bw_cell, input, dtype=tf.float32)
-    mat_src = outputs[-1]
-    return mat_src
+    outputs, _ = tf.nn.bidirectional_dynamic_rnn(lstm_fw_cell, lstm_bw_cell, input, dtype=tf.float32, scope=name)
+    mat = outputs[0][:, -1, :]
+    return mat
 
 
 def create_model(input_src, input_trg):
-    with tf.variable_scope('Model', reuse=None):
-        mat_src = create_matrix(input_src, len(w2i_src))
-    with tf.variable_scope('Model', reuse=True):
-        mat_trg = create_matrix(input_trg, len(w2i_trg))
-    sim_mat = tf.matmul(mat_src, mat_trg, transpose_b = True)
+#    initializer = tf.random_uniform_initializer(-1, 1)
+#    with tf.variable_scope('Model', reuse=None, initializer=initializer):
+    mat_src = create_matrix(input_src, len(w2i_src), 'source')
+#    with tf.variable_scope('Model', reuse=None, initializer=initializer):
+    mat_trg = create_matrix(input_trg, len(w2i_trg), 'target')
+    sim_mat = tf.matmul(mat_src, mat_trg, transpose_b=True)
     return sim_mat
 
 
 def create_loss(sim_mat):
     labels = tf.convert_to_tensor(list(range(BATCH_SIZE)), dtype=tf.int32)
     sparse = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=sim_mat)
-    return sparse
+    loss = tf.reduce_sum(sparse)
+    return loss
+
+
+def fill_eos(sent, eos):
+    ls = len(sent)
+    if ls < MAX_TIMESTEPS:
+        sent = [eos] * (MAX_TIMESTEPS - ls) + sent
+    elif ls > MAX_TIMESTEPS:
+        print('MAX_TIMESTEPS shall be at least {}'.format(ls))
+        sys.exit()
+
+    return sent
 
 
 def run_epoch(sess, loss, data, input_src, input_trg, optimizer):
@@ -77,12 +89,15 @@ def run_epoch(sess, loss, data, input_src, input_trg, optimizer):
         random.shuffle(data)
     this_loss = this_sents = 0
     total_loss = 0
+    eos_src = w2i_src['。']
+    eos_trg = w2i_src['.']
+
     for sid in range(0, len(data), BATCH_SIZE):
         if len(data) - sid < BATCH_SIZE:
             continue
         feed = {
-            input_src: [data[x][0] for x in range(sid, sid+BATCH_SIZE)],
-            input_trg: [data[x][1] for x in range(sid, sid+BATCH_SIZE)]
+            input_src: [fill_eos(data[x][0], eos_src) for x in range(sid, sid+BATCH_SIZE)],
+            input_trg: [fill_eos(data[x][1], eos_trg) for x in range(sid, sid+BATCH_SIZE)]
         }
         if optimizer is None:
             loss_val = sess.run(loss, feed_dict=feed)
@@ -92,8 +107,8 @@ def run_epoch(sess, loss, data, input_src, input_trg, optimizer):
         total_loss += loss_val
         this_loss += loss_val
         this_sents += BATCH_SIZE
-        if (sid + 1) % 10 == 0:
-            print('loss/sent: %.4f' % (this_loss / this_sents))
+        if (sid // BATCH_SIZE + 1) % 20 == 0:
+            print('loss/sent: %.7f' % (this_loss / this_sents))
             this_loss = this_sents = 0
 
     return total_loss
@@ -101,19 +116,20 @@ def run_epoch(sess, loss, data, input_src, input_trg, optimizer):
 
 def main(_):
     train, dev = read()
-
-    input_src = tf.placeholder(tf.int32, shape=[BATCH_SIZE, None], name='input_src')
-    input_trg = tf.placeholder(tf.int32, shape=[BATCH_SIZE, None], name='input_trg')
-    sim_mat = create_model(input_src, input_trg)
-    loss = create_loss(sim_mat)
-    optimizer = tf.train.AdamOptimizer(0.01).minimize(loss)
-
-    with tf.Session() as sess:
-        for iter in range(100):
-            print('training...')
-            run_epoch(sess, loss, train, input_src, input_trg, optimizer)
-            print('evaluating...')
-            run_epoch(sess, loss, dev, input_src, input_trg, None)
+    with tf.Graph().as_default():
+        input_src = tf.placeholder(tf.int32, shape=[BATCH_SIZE, MAX_TIMESTEPS], name='input_src')
+        input_trg = tf.placeholder(tf.int32, shape=[BATCH_SIZE, MAX_TIMESTEPS], name='input_trg')
+        sim_mat = create_model(input_src, input_trg)
+        loss = create_loss(sim_mat)
+        optimizer = tf.train.AdamOptimizer(0.01).minimize(loss)
+        sv = tf.train.Supervisor(logdir=FLAGS.output_dir)
+        with sv.managed_session() as sess:
+            for iter in range(100):
+                print('training...')
+                run_epoch(sess, loss, train, input_src, input_trg, optimizer)
+                print('evaluating...')
+                run_epoch(sess, loss, dev, input_src, input_trg, None)
+                sv.saver.save(sess, FLAGS.output_dir, global_step=iter)
 
 if __name__ == "__main__":
     tf.app.run()
