@@ -63,7 +63,7 @@ HIDDEN_SIZE = 256
 BATCH_SIZE = 64
 TIMESTEPS = 20
 MAX_TIMESTEPS = 96
-KEEP_PROB = 0.75
+KEEP_PROB = 0.5
 
 
 def create_lstm_cell():
