@@ -11,7 +11,7 @@
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
-    <CommandLineArguments>--input_dir ../input/ --output_dir output/</CommandLineArguments>
+    <CommandLineArguments>--input_dir ../input/ --output_dir output/ --model_dir model/</CommandLineArguments>
     <Name>08 condlm</Name>
     <RootNamespace>08 condlm</RootNamespace>
     <LaunchProvider>Standard Python launcher</LaunchProvider>
@@ -27,6 +27,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="batch_enc_dec.py" />
+    <Compile Include="translate.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

@@ -1,6 +1,7 @@
 ﻿import numpy as np
 import sys
 import os
+import random
 from collections import defaultdict
 from tensorflow.contrib import rnn
 import tensorflow as tf
@@ -15,7 +16,7 @@ import tensorflow as tf
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("input_dir", "input", "Input directory where training dataset and meta data are saved")
 tf.app.flags.DEFINE_string("output_dir", "output", "Output directory where output such as logs are saved.")
-tf.app.flags.DEFINE_string("model_dir", "output", "Model directory where final model files are saved.")
+tf.app.flags.DEFINE_string('model_dir', 'model', 'Model directory where final model files are saved.')
 
 #some of this code borrowed from Qinlan Shen's attention from the MT class last year
 #much of the beginning is the same as the text retrieval
@@ -57,8 +58,8 @@ def read(fname_src, fname_trg):
     with open(fname_src, "r", encoding='utf8') as f_src, open(fname_trg, "r", encoding='utf8') as f_trg:
         for line_src, line_trg in zip(f_src, f_trg):
             #need to append EOS tags to at least the target sentence
-            sent_src = [w2i_src[x] for x in line_src.strip().split() + ['</s>']] 
-            sent_trg = [w2i_trg[x] for x in ['<s>'] + line_trg.strip().split() + ['</s>']] 
+            sent_src = [w2i_src[x] for x in line_src.strip().split()] 
+            sent_trg = [w2i_trg[x] for x in line_trg.strip().split()] 
             yield (sent_src, sent_trg)
 
 # Read the data
@@ -89,8 +90,9 @@ def create_encoder(input, length):
         input = tf.nn.embedding_lookup(embedding, input)
         lstm_cell = rnn.BasicLSTMCell(HIDDEN_SIZE, forget_bias=1.0)
         outputs, states = tf.nn.dynamic_rnn(lstm_cell, input, dtype=tf.float32, sequence_length=length, scope='source')
-        last_indices = tf.subtract(length, tf.ones([BATCH_SIZE], tf.int32));
-        batch_ids = tf.convert_to_tensor(list(range(BATCH_SIZE)))
+        batch_size = int(input.shape[0])
+        last_indices = tf.subtract(length, tf.ones([batch_size], tf.int32));
+        batch_ids = tf.convert_to_tensor(list(range(batch_size)))
         stacked_indices = tf.stack([batch_ids, last_indices])
         stacked_indices = tf.transpose(stacked_indices)
         outputs = tf.gather_nd(outputs, stacked_indices)
@@ -102,34 +104,82 @@ def create_decoder(src_output, input, length):
         lstm_cell = rnn.BasicLSTMCell(HIDDEN_SIZE, forget_bias=1.0)
         state = rnn.LSTMStateTuple(src_output, tf.tanh(src_output))
         embedding = tf.Variable(tf.random_uniform([nwords_trg, EMBED_SIZE], -1.0, 1.0), dtype=tf.float32)
-        prefix = tf.convert_to_tensor([[eos_trg]] * BATCH_SIZE)
+        batch_size = int(input.shape[0])
+        prefix = tf.convert_to_tensor([[eos_trg]] * batch_size)
         prefix_input = tf.concat([prefix, input], axis=1)
+        prefix_input = prefix_input[:, :-1]
         prefix_input = tf.nn.embedding_lookup(embedding, prefix_input)
         outputs, states = tf.nn.dynamic_rnn(lstm_cell, prefix_input, initial_state=state, dtype=tf.float32, sequence_length=length, scope='target')
         weights = tf.Variable(tf.random_uniform([HIDDEN_SIZE, nwords_trg], -1, 1))
         bias = tf.Variable(tf.zeros([nwords_trg]))
         unstacked_outputs = tf.unstack(outputs, axis=0)
         unstacked_outputs = [tf.matmul(x, weights) + bias for x in unstacked_outputs]
-        outputs = tf.stack(unstacked_outputs)
-        return outputs, states
+        unstacked_lengths = tf.unstack(length)
+        unstacked_outputs = [o[:l] for o, l in zip(unstacked_outputs, unstacked_lengths)]
+        unstacked_labels = tf.unstack(input)
+        unstacked_labels = [o[:l] for o, l in zip(unstacked_labels, unstacked_lengths)]
+        return unstacked_outputs, unstacked_lengths, unstacked_labels
 
 
-def create_loss(outputs, labels, lengths):
-#outputs 16xNonex7083
-#labels 16xNone
-#lengths 16
-    sparse = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=outputs, labels=labels)
-#sparse 16xNone
-    loss = tf.reduce_sum(sparse, axis=[0, 1])
-    return loss
+def create_loss(outputs, labels):
+    with tf.name_scope('loss'):
+        sparses = [tf.nn.sparse_softmax_cross_entropy_with_logits(logits=o, labels=l) for o, l in zip(outputs, labels)]
+        losses = [tf.reduce_sum(s) for s in sparses]
+        loss = sum(losses)
+        return loss
 
 
 def create_optimizer(loss):
-    tvars = tf.trainable_variables()
-    grads, _ = tf.clip_by_global_norm(tf.gradients(loss, tvars), 5)
-    optimizer = tf.train.GradientDescentOptimizer(1.0)
-    train_optimizer = optimizer.apply_gradients(zip(grads, tvars), global_step=tf.contrib.framework.get_or_create_global_step())
-    return train_optimizer
+    with tf.name_scope('optimizer'):
+        tvars = tf.trainable_variables()
+        grads, _ = tf.clip_by_global_norm(tf.gradients(loss, tvars), 5)
+        optimizer = tf.train.GradientDescentOptimizer(1.0)
+        train_optimizer = optimizer.apply_gradients(zip(grads, tvars), global_step=tf.contrib.framework.get_or_create_global_step())
+        return train_optimizer
+
+
+def fill_eos(sent):
+    ls = len(sent)
+    if ls < MAX_TIMESTEPS:
+        sent = sent + [0] * (MAX_TIMESTEPS - ls)
+    elif ls > MAX_TIMESTEPS:
+        print('MAX_TIMESTEPS shall be at least {}'.format(ls))
+        sys.exit()
+
+    return sent
+
+
+def run_epoch(sess, loss, data, input_src, length_src, input_trg, length_trg, optimizer, unstacked_outputs):
+    if optimizer is not None:
+        random.shuffle(data)
+    this_loss = this_sents = 0
+    total_loss = 0
+
+    for sid in range(0, len(data), BATCH_SIZE):
+        if len(data) - sid < BATCH_SIZE:
+            continue
+        feed = {
+            input_src: [fill_eos(data[x][0]) for x in range(sid, sid+BATCH_SIZE)],
+            length_src: [len(data[x][0]) for x in range(sid, sid+BATCH_SIZE)],
+            input_trg: [fill_eos(data[x][1]) for x in range(sid, sid+BATCH_SIZE)],
+            length_trg: [len(data[x][1]) for x in range(sid, sid+BATCH_SIZE)]
+        }
+        if optimizer is None:
+            loss_val = sess.run(loss, feed_dict=feed)
+        else:
+            loss_val, _, outputs_val = sess.run([loss, optimizer, unstacked_outputs], feed_dict=feed)
+        wids_evl = [[np.argmax(x) for x in y] for y in outputs_val]
+        wids_tag = [data[x][1] for x in range(sid, sid+BATCH_SIZE)]
+        total_loss += loss_val
+        this_loss += loss_val
+        this_sents += BATCH_SIZE
+        if (sid // BATCH_SIZE + 1) % 20 == 0:
+            print(wids_evl[BATCH_SIZE // 2])
+            print(wids_tag[BATCH_SIZE // 2])
+            print('loss/sent: %.7f' % (this_loss / this_sents))
+            this_loss = this_sents = 0
+
+    return total_loss
 
 
 def main(_):
@@ -140,13 +190,16 @@ def main(_):
         length_trg = tf.placeholder(tf.int32, shape=[BATCH_SIZE], name='length_trg')
 
         src_output, _ = create_encoder(input_src, length_src)
-        trg_output, _ = create_decoder(src_output, input_trg, length_trg)
-        trg_loss = create_loss(trg_output, input_trg, length_trg)
+        trg_output, trg_lengths, trg_labels = create_decoder(src_output, input_trg, length_trg)
+        trg_loss = create_loss(trg_output, trg_labels)
         optimizer = create_optimizer(trg_loss)
 
         sv = tf.train.Supervisor(logdir=FLAGS.output_dir)
-    #    with sv.managed_session() as sess:
-    #        for iter in range(100):
+        with sv.managed_session() as sess:
+            for iter in range(100):
+                print('training...')
+                run_epoch(sess, trg_loss, train, input_src, length_src, input_trg, length_trg, optimizer, trg_output)
+                sv.saver.save(sess, FLAGS.output_dir, global_step=sv.global_step)
                 
 #need to evaluate trg_output to check the second axis
 
