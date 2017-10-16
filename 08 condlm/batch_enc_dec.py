@@ -30,25 +30,6 @@ w2i_src = defaultdict(lambda: len(w2i_src))
 w2i_trg = defaultdict(lambda: len(w2i_trg))
 
 
-# Creates batches where all source sentences are the same length
-def create_batches(sorted_dataset, max_batch_size):
-    source = [x[0] for x in sorted_dataset]
-    src_lengths = [len(x) for x in source]
-    batches = []
-    prev = src_lengths[0]
-    prev_start = 0
-    batch_size = 1
-    for i in range(1, len(src_lengths)):
-        if src_lengths[i] != prev or batch_size == max_batch_size:
-            batches.append((prev_start, batch_size))
-            prev = src_lengths[i]
-            prev_start = i
-            batch_size = 1
-        else:
-            batch_size += 1
-    return batches
-
-
 def read(fname_src, fname_trg):
     """
     Read parallel files where each line lines up
@@ -77,18 +58,27 @@ nwords_src = len(w2i_src)
 nwords_trg = len(w2i_trg)
 dev = list(read(dev_src_file, dev_trg_file))
 
-EMBED_SIZE = 64
-HIDDEN_SIZE = 128
-BATCH_SIZE = 16
+EMBED_SIZE = 128
+HIDDEN_SIZE = 256
+BATCH_SIZE = 64
 TIMESTEPS = 20
 MAX_TIMESTEPS = 96
+KEEP_PROB = 0.75
 
 
-def create_encoder(input, length):
+def create_lstm_cell():
+    return rnn.BasicLSTMCell(HIDDEN_SIZE, forget_bias=0.0, state_is_tuple=True)
+
+
+def create_attn_cell():
+    return rnn.DropoutWrapper(create_lstm_cell(), output_keep_prob=KEEP_PROB)
+
+
+def create_encoder(input, length, is_training):
     with tf.name_scope('encoder'):
         embedding = tf.Variable(tf.random_uniform([nwords_src, EMBED_SIZE], -1.0, 1.0), dtype=tf.float32)
         input = tf.nn.embedding_lookup(embedding, input)
-        lstm_cell = rnn.BasicLSTMCell(HIDDEN_SIZE, forget_bias=1.0)
+        lstm_cell = create_attn_cell() if is_training else create_lstm_cell()
         outputs, states = tf.nn.dynamic_rnn(lstm_cell, input, dtype=tf.float32, sequence_length=length, scope='source')
         batch_size = int(input.shape[0])
         last_indices = tf.subtract(length, tf.ones([batch_size], tf.int32));
@@ -99,9 +89,9 @@ def create_encoder(input, length):
         return outputs, states
 
 
-def create_decoder(src_output, input, length):
+def create_decoder(src_output, input, length, is_training):
     with tf.name_scope('decoder'):
-        lstm_cell = rnn.BasicLSTMCell(HIDDEN_SIZE, forget_bias=1.0)
+        lstm_cell = create_attn_cell() if is_training else create_lstm_cell()
         state = rnn.LSTMStateTuple(src_output, tf.tanh(src_output))
         embedding = tf.Variable(tf.random_uniform([nwords_trg, EMBED_SIZE], -1.0, 1.0), dtype=tf.float32)
         batch_size = int(input.shape[0])
@@ -174,8 +164,8 @@ def run_epoch(sess, loss, data, input_src, length_src, input_trg, length_trg, op
         this_loss += loss_val
         this_sents += BATCH_SIZE
         if (sid // BATCH_SIZE + 1) % 20 == 0:
-            print(wids_evl[BATCH_SIZE // 2])
-            print(wids_tag[BATCH_SIZE // 2])
+            print([i2w_trg[x] for x in wids_evl[BATCH_SIZE // 2]])
+            print([i2w_trg[x] for x in wids_tag[BATCH_SIZE // 2]])
             print('loss/sent: %.7f' % (this_loss / this_sents))
             this_loss = this_sents = 0
 
@@ -189,8 +179,8 @@ def main(_):
         length_src = tf.placeholder(tf.int32, shape=[BATCH_SIZE], name='length_src')
         length_trg = tf.placeholder(tf.int32, shape=[BATCH_SIZE], name='length_trg')
 
-        src_output, _ = create_encoder(input_src, length_src)
-        trg_output, trg_lengths, trg_labels = create_decoder(src_output, input_trg, length_trg)
+        src_output, _ = create_encoder(input_src, length_src, True)
+        trg_output, trg_lengths, trg_labels = create_decoder(src_output, input_trg, length_trg, True)
         trg_loss = create_loss(trg_output, trg_labels)
         optimizer = create_optimizer(trg_loss)
 
@@ -198,6 +188,7 @@ def main(_):
         with sv.managed_session() as sess:
             for iter in range(100):
                 print('training...')
+                random.shuffle(train)
                 run_epoch(sess, trg_loss, train, input_src, length_src, input_trg, length_trg, optimizer, trg_output)
                 sv.saver.save(sess, FLAGS.output_dir, global_step=sv.global_step)
                 

@@ -12,8 +12,8 @@ def predict(texts):
         length_src = tf.placeholder(tf.int32, shape=[1], name='length_src')
         length_trg = tf.placeholder(tf.int32, shape=[1], name='length_trg')
 
-        src_output, _ = ed.create_encoder(input_src, length_src)
-        trg_output, trg_lengths, trg_labels = ed.create_decoder(src_output, input_trg, length_trg)
+        src_output, _ = ed.create_encoder(input_src, length_src, False)
+        trg_output, trg_lengths, trg_labels = ed.create_decoder(src_output, input_trg, length_trg, False)
 
         sv = tf.train.Supervisor(logdir=ed.FLAGS.model_dir)
         with sv.managed_session() as sess:
