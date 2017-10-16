@@ -57,10 +57,7 @@ def create_matrix(input, nwords, name):
 
 
 def create_model(input_src, input_trg):
-#    initializer = tf.random_uniform_initializer(-1, 1)
-#    with tf.variable_scope('Model', reuse=None, initializer=initializer):
     mat_src = create_matrix(input_src, len(w2i_src), 'source')
-#    with tf.variable_scope('Model', reuse=None, initializer=initializer):
     mat_trg = create_matrix(input_trg, len(w2i_trg), 'target')
     sim_mat = tf.matmul(mat_src, mat_trg, transpose_b=True)
     return sim_mat

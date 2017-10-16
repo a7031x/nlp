@@ -153,7 +153,7 @@ class PTBModel(object):
             return tf.contrib.rnn.BasicLSTMCell(HIDDEN_SIZE, forget_bias=0.0, state_is_tuple=True)
 
     def create_attn_cell(self):
-        return tf.contrib.rnn.DropoutWrapper(self.create_lstm_cell(), output_keep_prob = KEEP_PROB)
+        return tf.contrib.rnn.DropoutWrapper(self.create_lstm_cell(), output_keep_prob=KEEP_PROB)
 
     @property
     def input(self):
