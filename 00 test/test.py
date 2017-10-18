@@ -23,11 +23,11 @@ def main(_):
             [[1, 2, 3], [4, 5, 6]],
             [[1, 3, 5], [2, 4, 6]],
             [[1, 2, 3], [6, 5, 4]]
-        ])
+        ], dtype=tf.float32)
     b = tf.convert_to_tensor(
         [
             [1, 2, 3]
-        ])
+        ], dtype=tf.float32)
     c = a + b
 
     d0 = tf.convert_to_tensor([0, 1, 2])
@@ -36,10 +36,16 @@ def main(_):
     indices = tf.transpose(indices)
     d = tf.gather_nd(a, indices)
     e = tf.reduce_sum(a, axis=1)
+    f = tf.nn.dropout(a, 0.5)
+
+    c = tf.placeholder(tf.float32, [None])
+    d = tf.matmul([[1, 2]], [[1, 2], [3, 4]])
 
     with tf.Session() as sess:
-        welcome = sess.run(e)
-        print(welcome)
+        initializer = tf.global_variables_initializer()
+        sess.run(initializer)
+        welcome = sess.run(d)
+        print(d)
     exit(0)
 
 

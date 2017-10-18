@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27004.2002
+VisualStudioVersion = 15.0.26730.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "01 deep_cbow", "01 deep_cbow\01 deep_cbow.pyproj", "{F3E48314-DCB0-491E-B269-D7D94A9502B4}"
 EndProject
@@ -24,6 +24,8 @@ EndProject
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "09 attention", "09 attention\09 attention.pyproj", "{4E4D872A-AABC-426E-AD82-983A2504662C}"
 EndProject
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "00 test", "00 test\00 test.pyproj", "{2E52556D-6926-4953-B924-16AC9E6F2574}"
+EndProject
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "10 structure", "10 structure\10 structure.pyproj", "{5C77334F-A6E7-4A3E-B292-F93EBA9BD3DE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -73,6 +75,10 @@ Global
 		{2E52556D-6926-4953-B924-16AC9E6F2574}.Debug|x64.ActiveCfg = Debug|Any CPU
 		{2E52556D-6926-4953-B924-16AC9E6F2574}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2E52556D-6926-4953-B924-16AC9E6F2574}.Release|x64.ActiveCfg = Release|Any CPU
+		{5C77334F-A6E7-4A3E-B292-F93EBA9BD3DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C77334F-A6E7-4A3E-B292-F93EBA9BD3DE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5C77334F-A6E7-4A3E-B292-F93EBA9BD3DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C77334F-A6E7-4A3E-B292-F93EBA9BD3DE}.Release|x64.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
