@@ -64,7 +64,8 @@ BATCH_SIZE = 64
 TIMESTEPS = 20
 MAX_TIMESTEPS = 96
 REDUCE_STATE_SIZE = 64
-KEEP_PROB = 0.75
+ATTENTION_SIZE = 128
+KEEP_PROB = 0.7
 
 
 def create_lstm_cell(hidden_size):
@@ -72,7 +73,7 @@ def create_lstm_cell(hidden_size):
 
 
 def create_attn_cell(hidden_size):
-    return rnn.DropoutWrapper(create_lstm_cell(hidden_size), output_keep_prob=KEEP_PROB)
+    return rnn.DropoutWrapper(create_lstm_cell(hidden_size), output_keep_prob=1.0)
 
 
 def create_encoder(input, length, is_training):
@@ -89,30 +90,34 @@ def create_encoder(input, length, is_training):
         stacked_indices = tf.stack([batch_ids, last_indices])
         stacked_indices = tf.transpose(stacked_indices)
         outputs = tf.concat(outputs, axis=2)
-        outputs = tf.gather_nd(outputs, stacked_indices)
-        return outputs, states
+        last_output = tf.gather_nd(outputs, stacked_indices)
+        outputs = tf.reduce_sum(outputs, 1)
+        return outputs, last_output
 
 
-def create_decoder(src_output, input, length, is_training):
+def create_decoder(src_outputs, src_last_output, input, length, is_training):
     with tf.name_scope('decoder'):
-        state_mat = tf.Variable(tf.random_uniform([int(src_output.shape[1]), HIDDEN_SIZE], -1.0, 1.0), dtype=tf.float32)
-        state_bias = tf.Variable(tf.zeros([HIDDEN_SIZE]))
-        src_state = tf.matmul(src_output, state_mat) + state_bias
-        src_state = rnn.LSTMStateTuple(src_state, tf.tanh(src_state))
-        lstm_cell = create_attn_cell(HIDDEN_SIZE) if is_training else create_lstm_cell(HIDDEN_SIZE)
-        embedding = tf.Variable(tf.random_uniform([nwords_trg, EMBED_SIZE], -1.0, 1.0), dtype=tf.float32)
+        output_embedding_size = int(src_outputs.shape[1])
+        attn_mat = tf.Variable(tf.random_normal([output_embedding_size, EMBED_SIZE]))
+        attn_bias = tf.Variable(tf.random_normal([EMBED_SIZE]))
+        src_keys = tf.matmul(src_outputs, attn_mat) + attn_bias
         batch_size = int(input.shape[0])
+        src_keys = tf.reshape(src_keys, [batch_size, 1, -1])
+        embedding = tf.Variable(tf.random_uniform([nwords_trg, EMBED_SIZE], -1.0, 1.0), dtype=tf.float32)
         prefix = tf.convert_to_tensor([[eos_trg]] * batch_size)
         prefix_input = tf.concat([prefix, input], axis=1)
         prefix_input = prefix_input[:, :-1]
         prefix_input = tf.nn.embedding_lookup(embedding, prefix_input)
-        reduce_mat = tf.Variable(tf.random_uniform([int(src_output.shape[1]), REDUCE_STATE_SIZE], -1.0, 1.0), dtype=tf.float32)
-        reduce_bias = tf.Variable(tf.zeros([REDUCE_STATE_SIZE]))
-        state = tf.tanh(tf.matmul(src_output, reduce_mat) + reduce_bias)
-        state = tf.tile(state, [1, MAX_TIMESTEPS])
-        state = tf.reshape(state, [batch_size, MAX_TIMESTEPS, -1])
-        final_input = tf.concat([prefix_input, state], axis=2)
-      #  final_input = prefix_input
+        prefix_input = tf.nn.dropout(prefix_input, KEEP_PROB if is_training else 1.0)
+        src_key_query = tf.nn.tanh(prefix_input) * src_keys
+        final_input = tf.concat([prefix_input, src_key_query], axis=2)
+     #   final_input = src_key_query
+        state_mat = tf.Variable(tf.random_uniform([output_embedding_size, HIDDEN_SIZE], -1.0, 1.0), dtype=tf.float32)
+        state_bias = tf.Variable(tf.zeros([HIDDEN_SIZE]))
+        src_state = tf.matmul(src_last_output, state_mat) + state_bias
+        src_state = rnn.LSTMStateTuple(src_state, tf.tanh(src_state))
+
+        lstm_cell = create_attn_cell(HIDDEN_SIZE) if is_training else create_lstm_cell(HIDDEN_SIZE)
         outputs, states = tf.nn.dynamic_rnn(lstm_cell, final_input, initial_state=src_state, dtype=tf.float32, sequence_length=length, scope='target')
         weights = tf.Variable(tf.random_uniform([HIDDEN_SIZE, nwords_trg], -1, 1))
         bias = tf.Variable(tf.zeros([nwords_trg]))
@@ -188,13 +193,13 @@ def run_epoch(sess, loss, data, input_src, length_src, input_trg, length_trg, op
 
 def main(_):
     with tf.Graph().as_default():
-        input_src = tf.placeholder(tf.int32, shape=[BATCH_SIZE, MAX_TIMESTEPS], name='input_src')
-        input_trg = tf.placeholder(tf.int32, shape=[BATCH_SIZE, MAX_TIMESTEPS], name='input_trg')
+        input_src = tf.placeholder(tf.int32, shape=[BATCH_SIZE, None], name='input_src')
+        input_trg = tf.placeholder(tf.int32, shape=[BATCH_SIZE, None], name='input_trg')
         length_src = tf.placeholder(tf.int32, shape=[BATCH_SIZE], name='length_src')
         length_trg = tf.placeholder(tf.int32, shape=[BATCH_SIZE], name='length_trg')
 
-        src_output, src_state = create_encoder(input_src, length_src, True)
-        trg_output, trg_lengths, trg_labels = create_decoder(src_output, input_trg, length_trg, True)
+        src_outputs, src_last_output = create_encoder(input_src, length_src, True)
+        trg_output, trg_lengths, trg_labels = create_decoder(src_outputs, src_last_output, input_trg, length_trg, True)
         trg_loss = create_loss(trg_output, trg_labels)
         optimizer = create_optimizer(trg_loss)
 
@@ -205,8 +210,6 @@ def main(_):
                 random.shuffle(train)
                 run_epoch(sess, trg_loss, train, input_src, length_src, input_trg, length_trg, optimizer, trg_output)
                 sv.saver.save(sess, FLAGS.output_dir, global_step=sv.global_step)
-                
-#need to evaluate trg_output to check the second axis
 
 if __name__ == "__main__":
     tf.app.run()
