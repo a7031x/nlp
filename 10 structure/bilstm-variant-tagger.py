@@ -101,16 +101,24 @@ dev = list(read(dev_file))
 EMBED_SIZE = 64
 TAG_EMBED_SIZE = 16
 HIDDEN_SIZE = 128
+MAX_LENGTH = 128
 
 
-def calc_score(fw_cell, bw_cell, states, bw_state, x, y, t, weight, bias):
-    if use_teacher_forcing:
-        x = tf.concate([x, t])
+def calc_score(fw_cell, bw_cell, states, bw_state, x, y, t, weight, bias, tag_embedding, sampler):
+    if t is None:
+        t = states[2]
+    else:
+        if sampler.sample_true() is not True:
+            t = states[2]
+            
+    x = tf.concate([x, t])
     fw_o, states[0] = fw_cell(x, states[0])
     bw_o, states[1] = bw_cell(x, states[1])
     output = tf.concate([fw_o, bw_o], axis=1)
     score = tf.matmul(output, weight) + bias
     prediction = tf.argmax(score)
+    states[2] = prediction
+    return score
 
 
 def create_model(input, label):
@@ -132,10 +140,14 @@ def create_model(input, label):
     if label is not None:
         tag = tf.concate([start_tag, label[:-1]], axis=0)
         tag = tf.embedding_lookup(tag_embedding, tag)
+    else:
+        tag = [None] * MAX_LENGTH
+        tag[0] = start_tag
 
-    states = [fwd_lstm.zero_state(1, tf.float32), bwd_lstm.zero_state(1, tf.float32)]
-    fn = lambda x, y, t: calc_score(fwd_lstm, bwd_lstm, states, x, y, t, weight, bias)
-    tf.map_fn(fn, zip(input, reverse_input, tag))
+    states = [fwd_lstm.zero_state(1, tf.float32), bwd_lstm.zero_state(1, tf.float32), start_tag]
+    fn = lambda x, y, t: calc_score(fwd_lstm, bwd_lstm, states, x, y, t, weight, bias, tag_embedding, sampler)
+    scores = tf.map_fn(fn, zip(input, reverse_input, tag))
+    return scores
 
 
 def main(_):
