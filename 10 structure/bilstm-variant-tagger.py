@@ -225,7 +225,7 @@ def main(_):
             with tf.variable_scope('Model', reuse=True, initializer=initializer):
                 valid_scores = create_model(inputs, None)
                 valid_losses = calc_loss(valid_scores, tags)
-                valid_corrects = calc_correct(valid_losses, tags)
+                valid_corrects = calc_correct(valid_scores, tags)
 
         sv = tf.train.Supervisor(logdir=FLAGS.output_dir)
         with sv.managed_session() as sess:
