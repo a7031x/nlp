@@ -2,6 +2,7 @@
 import sys
 import os
 import random
+import html
 from collections import defaultdict
 from tensorflow.contrib import rnn
 import tensorflow as tf
@@ -65,7 +66,7 @@ TIMESTEPS = 20
 MAX_TIMESTEPS = 96
 REDUCE_STATE_SIZE = 64
 ATTENTION_SIZE = 128
-KEEP_PROB = 0.9
+KEEP_PROB = 1.0
 
 
 def create_lstm_cell(hidden_size):
@@ -108,7 +109,7 @@ def create_decoder(src_outputs, src_last_output, input, length, is_training):
         prefix_input = tf.concat([prefix, input], axis=1)
         prefix_input = prefix_input[:, :-1]
         prefix_input = tf.nn.embedding_lookup(embedding, prefix_input)
-        prefix_input = tf.layers.dropout(prefix_input, KEEP_PROB if is_training else 1.0,
+        prefix_input = tf.layers.dropout(prefix_input, 1 - KEEP_PROB if is_training else 0.0,
                                          noise_shape=[int(prefix_input.shape[0]), MAX_TIMESTEPS, 1], training=is_training)
         src_key_query = prefix_input * src_keys
         final_input = tf.concat([prefix_input, src_key_query], axis=2)
@@ -183,8 +184,8 @@ def run_epoch(sess, loss, data, input_src, length_src, input_trg, length_trg, op
         this_loss += loss_val
         this_sents += BATCH_SIZE
         if (sid // BATCH_SIZE + 1) % 20 == 0:
-            print([i2w_trg[x] for x in wids_evl[BATCH_SIZE // 2]])
-            print([i2w_trg[x] for x in wids_tag[BATCH_SIZE // 2]])
+            print(' '.join([html.unescape(i2w_trg[x]) for x in wids_evl[BATCH_SIZE // 2]]))
+            print(' '.join([html.unescape(i2w_trg[x]) for x in wids_tag[BATCH_SIZE // 2]]))
             print('loss/sent: %.7f' % (this_loss / this_sents))
             this_loss = this_sents = 0
 
