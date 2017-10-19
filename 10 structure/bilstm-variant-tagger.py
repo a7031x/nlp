@@ -241,7 +241,7 @@ def main(_):
                     loss_val, correct_val, _ = sess.run([train_losses, train_corrects, optimizer], feed_dict=feed)
                     counter += 1
                     if counter % 100 == 0:
-                        print('loss: {}, correct: {}/{}'.format(loss_val, int(correct_val), len(words)))
+                        print('progress: {}/{}, loss: {}, correct: {}/{}'.format(counter, len(train), loss_val, int(correct_val), len(words)))
                     if counter % 1000 == 0:
                         sv.saver.save(sess, FLAGS.output_dir, global_step=itr*10000+counter)
 
