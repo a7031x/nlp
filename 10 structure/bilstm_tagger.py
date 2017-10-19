@@ -61,7 +61,7 @@ class ScheduleSampler:
     A linear schedule sampler.
     """
 
-    def __init__(self, start_rate=0.8, min_rate=0.2, decay_rate=0.1):
+    def __init__(self, start_rate=0.6, min_rate=0.2, decay_rate=0.1):
         self.min_rate = min_rate
         self.iter = 0
         self.decay_rate = decay_rate
