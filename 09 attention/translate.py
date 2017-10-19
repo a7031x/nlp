@@ -2,6 +2,7 @@
 import attention as ed
 import tensorflow as tf
 import numpy as np
+import html
 
 def predict(texts):
     end_marks = ['.', '?', '!']
@@ -36,6 +37,7 @@ def predict(texts):
                     test_output = wids_evl + [ed.eos_trg]
                 print('input: ' + text)
                 translated = [ed.i2w_trg[x] for x in wids_evl]
+                translated = [html.unescape(x) for x in translated]
                 print('output: ' + ' '.join(translated))
 
 texts = [

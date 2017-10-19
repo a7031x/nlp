@@ -65,7 +65,7 @@ TIMESTEPS = 20
 MAX_TIMESTEPS = 96
 REDUCE_STATE_SIZE = 64
 ATTENTION_SIZE = 128
-KEEP_PROB = 0.7
+KEEP_PROB = 0.9
 
 
 def create_lstm_cell(hidden_size):
@@ -110,9 +110,8 @@ def create_decoder(src_outputs, src_last_output, input, length, is_training):
         prefix_input = tf.nn.embedding_lookup(embedding, prefix_input)
         prefix_input = tf.layers.dropout(prefix_input, KEEP_PROB if is_training else 1.0,
                                          noise_shape=[int(prefix_input.shape[0]), MAX_TIMESTEPS, 1], training=is_training)
-        src_key_query = tf.nn.tanh(prefix_input) * src_keys
+        src_key_query = prefix_input * src_keys
         final_input = tf.concat([prefix_input, src_key_query], axis=2)
-     #   final_input = src_key_query
         state_mat = tf.Variable(tf.random_uniform([output_embedding_size, HIDDEN_SIZE], -1.0, 1.0), dtype=tf.float32)
         state_bias = tf.Variable(tf.zeros([HIDDEN_SIZE]))
         src_state = tf.matmul(src_last_output, state_mat) + state_bias
