@@ -15,7 +15,7 @@ from collections import defaultdict
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string("input_dir", "input", "Input directory where training dataset and meta data are saved")
 tf.app.flags.DEFINE_string("output_dir", "output", "Output directory where output such as logs are saved.")
-tf.app.flags.DEFINE_string("model_dir", "output", "Model directory where final model files are saved.")
+tf.app.flags.DEFINE_string("model_dir", "model", "Model directory where final model files are saved.")
 
 use_teacher_forcing = True
 use_structure_perceptron = True
@@ -29,7 +29,6 @@ dev_file = "tags/dev.txt"
 
 w2i = defaultdict(lambda: len(w2i))
 t2i = defaultdict(lambda: len(t2i))
-
 
 def read(fname):
     """
@@ -62,7 +61,7 @@ class ScheduleSampler:
     A linear schedule sampler.
     """
 
-    def __init__(self, start_rate=1, min_rate=0.2, decay_rate=0.1):
+    def __init__(self, start_rate=0.8, min_rate=0.2, decay_rate=0.1):
         self.min_rate = min_rate
         self.iter = 0
         self.decay_rate = decay_rate
@@ -85,6 +84,15 @@ class ScheduleSampler:
     def sample_true(self):
         return random.random() < self.sample_rate
 
+    @property
+    def rate(self):
+        return self.sample_rate
+
+
+if use_schedule:
+    sampler = ScheduleSampler()
+else:
+    sampler = AlwaysTrueSampler()
 
 # Read the data
 train = list(read(train_file))
@@ -128,10 +136,6 @@ def create_model(input, label):
     embedding = tf.get_variable('embedding', shape=[nwords, EMBED_SIZE], dtype=tf.float32)
     input = tf.nn.embedding_lookup(embedding, input)
     tag_embedding = tf.get_variable('tag_embedding', shape=[ntags, TAG_EMBED_SIZE], dtype=tf.float32)
-    if use_schedule:
-        sampler = ScheduleSampler()
-    else:
-        sampler = AlwaysTrueSampler()
 
     fwd_lstm = tf.contrib.rnn.BasicLSTMCell(HIDDEN_SIZE / 2, forget_bias=0.0)
     bwd_lstm = tf.contrib.rnn.BasicLSTMCell(HIDDEN_SIZE / 2, forget_bias=0.0)
@@ -230,7 +234,7 @@ def main(_):
         sv = tf.train.Supervisor(logdir=FLAGS.output_dir)
         with sv.managed_session() as sess:
             for itr in range(100):
-                print('training...')
+                print('training {}...'.format(sampler.rate))
                 random.shuffle(train)
                 counter = 0
                 for words, labels in train:
@@ -245,6 +249,8 @@ def main(_):
                     if counter % 1000 == 0:
                         sv.saver.save(sess, FLAGS.output_dir, global_step=itr*10000+counter)
 
+                sampler.decay()
+
                 print('evaluating...')
                 counter = 0
                 for words, labels in dev:
@@ -256,7 +262,6 @@ def main(_):
                     counter += 1
                     if counter % 100 == 0:
                         print('loss: {}, correct: {}/{}'.format(loss_val, int(correct_val), len(words)))
-
 
 
 if __name__ == "__main__":
