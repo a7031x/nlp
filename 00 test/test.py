@@ -16,6 +16,11 @@ tf.app.flags.DEFINE_string("output_dir", "output", "Output directory where outpu
 tf.app.flags.DEFINE_string("model_dir", "output", "Model directory where final model files are saved.")
 
 
+def fn1(x):
+    r = tf.one_hot(x[2] + 1, 5, dtype=tf.float32)
+    return r
+
+
 def main(_):
     #a: 3x2x3
     a = tf.convert_to_tensor(
@@ -23,29 +28,23 @@ def main(_):
             [[1, 2, 3], [4, 5, 6]],
             [[1, 3, 5], [2, 4, 6]],
             [[1, 2, 3], [6, 5, 4]]
-        ], dtype=tf.float32)
+        ], dtype=tf.int32)
     b = tf.convert_to_tensor(
         [
             [1, 2, 3]
-        ], dtype=tf.float32)
+        ], dtype=tf.int32)
     c = a + b
 
-    d0 = tf.convert_to_tensor([0, 1, 2])
-    d1 = tf.convert_to_tensor([1, 1, 1])
-    indices = tf.stack([d0, d1])
-    indices = tf.transpose(indices)
-    d = tf.gather_nd(a, indices)
-    e = tf.reduce_sum(a, axis=1)
-    f = tf.nn.dropout(a, 0.5)
+    a = tf.convert_to_tensor([1, 2, 3])
+    b = tf.convert_to_tensor([2, 2, 3])
 
-    c = tf.placeholder(tf.float32, [None])
-    d = tf.matmul([[1, 2]], [[1, 2], [3, 4]])
+    fn = lambda x: tf.equal(x[1], 2)
 
     with tf.Session() as sess:
         initializer = tf.global_variables_initializer()
         sess.run(initializer)
-        welcome = sess.run(d)
-        print(d)
+        r = tf.map_fn(fn, (a, b, c), dtype=tf.bool)
+        print(sess.run(r))
     exit(0)
 
 
