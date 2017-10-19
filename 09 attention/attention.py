@@ -109,9 +109,9 @@ def create_decoder(src_outputs, src_last_output, input, length, is_training):
         prefix_input = tf.concat([prefix, input], axis=1)
         prefix_input = prefix_input[:, :-1]
         prefix_input = tf.nn.embedding_lookup(embedding, prefix_input)
-        prefix_input = tf.layers.dropout(prefix_input, 1 - KEEP_PROB if is_training else 0.0,
-                                         noise_shape=[int(prefix_input.shape[0]), MAX_TIMESTEPS, 1], training=is_training)
-        src_key_query = prefix_input * src_keys
+   #     prefix_input = tf.layers.dropout(prefix_input, rate=(1.0-KEEP_PROB) if is_training else 0.0,
+   #                                      noise_shape=[int(prefix_input.shape[0]), MAX_TIMESTEPS, 1], training=is_training)
+        src_key_query = prefix_input * tf.tanh(src_keys)
         final_input = tf.concat([prefix_input, src_key_query], axis=2)
         state_mat = tf.Variable(tf.random_uniform([output_embedding_size, HIDDEN_SIZE], -1.0, 1.0), dtype=tf.float32)
         state_bias = tf.Variable(tf.zeros([HIDDEN_SIZE]))
